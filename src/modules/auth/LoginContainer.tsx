@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { LoginForm } from './components/LoginForm';
 import { useLoginMutation } from './api/authApi';
 import { useAuth } from '../../hooks/useAuth';
+import { DEMO_CREDENTIALS, isDemoCredentials, startDemoSession } from './demoAuth';
 import { Role } from '../../types';
 
 // Container: owns the RTK Query call + navigation/redirect logic.
@@ -15,7 +16,15 @@ export default function LoginContainer() {
   const { setUser } = useAuth();
   const [login, { isLoading, error }] = useLoginMutation();
 
+  const redirectByRole = (role: Role) => router.push(`/${role.toLowerCase()}/dashboard`);
+
   const handleSubmit = async (values: { email: string; password: string }) => {
+    if (isDemoCredentials(values.email, values.password)) {
+      setUser(startDemoSession(Role.ADMIN));
+      redirectByRole(Role.ADMIN);
+      return;
+    }
+
     const result = await login(values).unwrap();
     const payload = JSON.parse(atob(result.data!.accessToken.split('.')[1]));
 
@@ -28,7 +37,7 @@ export default function LoginContainer() {
       updatedAt: '',
     });
 
-    router.push(payload.role === Role.ADMIN ? '/admin/dashboard' : '/user/dashboard');
+    redirectByRole(payload.role);
   };
 
   return (
@@ -36,6 +45,7 @@ export default function LoginContainer() {
       onSubmit={handleSubmit}
       isLoading={isLoading}
       errorMessage={error ? 'Invalid email or password' : undefined}
+      demoCredentials={DEMO_CREDENTIALS}
     />
   );
 }
